@@ -1,0 +1,8 @@
+---
+# handlers file for freeipa_docker
+
+- name: Restart systemd-resolved
+  become: yes
+  ansible.builtin.service:
+    name: systemd-resolved
+    state: restarted

@@ -1,0 +1,64 @@
+---
+# tasks file for freeipa_docker
+
+- name: Load distro-specific variables
+  include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution }}.yaml"
+    - "{{ ansible_os_family }}.yaml"
+    - "{{ default }}.yaml"
+
+- name: Check if port 53 is occupied by systemd-resolved
+  become: yes
+  command: lsof -i :53
+  register: systemd_resolved_status
+  changed_when: false
+  failed_when: false
+
+- name: Change systemd-resolved configuration if port 53 is occupied by systemd-resolved
+  include_tasks: dns-fix.yaml
+  when: "'systemd' in systemd_resolved_status.stdout"
+
+- name: Check Python pip is installed
+  ansible.builtin.package:
+    name: "{{ pip_packages }}"
+    state: present
+
+- name: Check docker and docker-compose Python packages is installed
+  ansible.builtin.pip:
+    name:
+      - docker
+      - docker-compose
+
+- name: Check container status
+  community.docker.docker_container_info:
+    name: freeipa-server-container
+  register: container_status
+
+- name: Set correct DNS servers
+  become: yes
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/resolved.conf
+    regexp: '^#?DNS='
+    line: 'DNS={{ freeipa_init_dns }}'
+  when: not container_status.exists
+  notify: Restart systemd-resolved
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- name: Setup first FreeIPA master
+  include_tasks: master.yaml
+  when: freeipa_role == 'master' and not container_status.exists
+
+- name: Setup FreeIPA replica
+  include_tasks: replica.yaml
+  when: freeipa_role == 'replica' and not container_status.exists
+
+- name: Set localhost as DNS server
+  become: yes
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/resolved.conf
+    regexp: '^#?DNS='
+    line: 'DNS=127.0.0.1'
+  notify: Restart systemd-resolved

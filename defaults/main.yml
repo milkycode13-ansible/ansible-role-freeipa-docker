@@ -1,0 +1,4 @@
+---
+# defaults file for freeipa_docker
+
+freeipa_role: master

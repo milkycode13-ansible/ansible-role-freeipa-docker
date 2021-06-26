@@ -1,0 +1,54 @@
+---
+
+- name: Run FreeIPA Server Container
+  become: yes
+  community.docker.docker_container:
+    image: freeipa/freeipa-server:centos-8
+    name: freeipa-server-container
+    tty: yes
+    interactive: yes
+    ports:
+      - "53:53/udp"
+      - "53:53"
+      - "80:80"
+      - "443:443"
+      - "389:389"
+      - "636:636"
+      - "88:88"
+      - "464:464"
+      - "88:88/udp"
+      - "464:464/udp"
+      - "123:123/udp"
+    env:
+      IPA_SERVER_IP: "{{ ip_address }}"
+      IPA_SERVER_HOSTNAME: "{{ fqdn }}"
+    dns_servers:
+      - 127.0.0.1
+      - "{{ freeipa_forwarder }}"
+    command:
+      - "--realm={{ freeipa_realm }}"
+      - "--domain={{ domain_name }}"
+      - "--ds-password={{ freeipa_ds_password }}"
+      - "--admin-password={{ freeipa_admin_password }}"
+      - "--ip-address={{ ip_address }}"
+      - --unattended
+      - --setup-dns
+      - "--forwarder={{ freeipa_forwarder }}"
+      - --auto-reverse
+    hostname: "{{ fqdn }}"
+    read_only: yes
+    restart_policy: unless-stopped
+    sysctls:
+      net.ipv6.conf.all.disable_ipv6: 0
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - /var/lib/ipa-data:/data:Z
+    etc_hosts: '{ "{{ fqdn }}": "{{ ip_address }}" }'
+
+- name: Wait for container to set up
+  ansible.builtin.command: "dig _kerberos.{{ domain_name }} TXT @127.0.0.1"
+  register: dns_result
+  until: freeipa_realm in dns_result.stdout
+  retries: 30
+  delay: 10
+  changed_when: false
