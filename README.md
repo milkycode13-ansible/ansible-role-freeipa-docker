@@ -18,6 +18,8 @@ Variable                 | Description
 `fqdn`                   | Host FQDN
 `ip_address`             | Main server IP address
 `domain_name`            | Domain
+`freeipa_role`           | FreeIPA server role: `master` or `replica`
+`freeipa_realm`          | FreeIPA realm name
 `freeipa_init_dns`       | DNS server before deployment
 `freeipa_forwarder`      | FreeIPA DNS Forwarder
 `freeipa_ds_password`    | FreeIPA Directory Manager password
